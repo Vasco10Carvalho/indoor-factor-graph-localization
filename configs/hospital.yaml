@@ -1,0 +1,119 @@
+# Portable baseline for a single-floor indoor environment.
+# Dataset paths and the initial pose are intentionally supplied on the CLI.
+
+frames:
+  map_frame: map
+  odom_frame: odom
+  base_frame: base_link
+
+topics:
+  odom_topic: /odometry/filtered
+  imu_topic: /imu/data
+  lidar_imu_topic: /ouster/imu
+  scan_topic: /scan
+  initialpose_topic: /initialpose
+  map_topic: /indoor/map
+  output_odom_topic: /indoor/factor_graph/odom
+  output_path_topic: /indoor/factor_graph/path
+  output_segments_topic: /indoor/factor_graph/segments
+  output_recovery_markers_topic: /indoor/factor_graph/recovery_markers
+  output_odom_only_path_topic: /indoor/odometry_only/path
+  output_axes_topic: /indoor/factor_graph/axes
+  output_loops_topic: /indoor/factor_graph/loops
+  output_status_topic: /indoor/factor_graph/status
+
+timing:
+  keyframe_rate_hz: 3.0
+  odom_max_sync_sec: 0.15
+  imu_max_sync_sec: 0.15
+  buffer_size: 2000
+
+scan_matching:
+  maximum_scan_range: 30.0
+  maximum_scan_points: 240
+  truncation_distance: 1.5
+  local_xy_window: 0.6
+  local_xy_step: 0.20
+  local_yaw_window_deg: 6.0
+  local_yaw_step_deg: 1.0
+  minimum_inlier_ratio: 0.35
+  maximum_mean_distance: 0.65
+  minimum_valid_ratio: 0.75
+  maximum_scan_correction: 1.15
+  maximum_scan_rotation_deg: 7.0
+  scan_min_sigma_xy: 0.08
+  scan_max_sigma_xy: 0.80
+  scan_min_sigma_yaw_deg: 1.0
+  scan_max_sigma_yaw_deg: 12.0
+  scan_huber_k: 1.5
+
+factor_graph:
+  prior_sigma_xy: 0.25
+  prior_sigma_yaw_deg: 5.0
+  odom_sigma_xy: 0.08
+  odom_sigma_yaw_deg: 3.0
+  weak_odom_sigma_xy: 1.0
+  weak_odom_sigma_yaw_deg: 30.0
+  maximum_odom_step: 3.0
+  maximum_odom_rotation_deg: 45.0
+  relinearize_threshold: 0.01
+  relinearize_skip: 1
+
+imu:
+  allow_missing_robot_imu: false
+  use_robot_imu_factor: false
+  robot_imu_delta_yaw_sigma_deg: 2.0
+  use_lidar_gyro_factor: false
+  lidar_gyro_delta_yaw_sigma_deg: 8.0
+  lidar_gyro_bias_z_rad_s: -0.0026
+  maximum_imu_delta_yaw_deg: 15.0
+
+# This is the recovery method validated on the URGENCY hospital dataset.
+scan_recovery:
+  enable_scan_recovery: true
+  global_particles: 30000
+  global_seed: 7
+  recovery_after_rejections: 5
+  recovery_check_interval: 5
+  recovery_particles: 30000
+  recovery_minimum_inlier_ratio: 0.65
+  recovery_maximum_mean_distance: 0.30
+  recovery_maximum_xy_distance: 8.0
+  recovery_maximum_yaw_deg: 100.0
+  recovery_confirmations: 3
+  recovery_confirmation_xy_distance: 1.0
+  recovery_confirmation_yaw_deg: 15.0
+
+loop_closure:
+  enable_loop_closure: true
+  loop_check_interval: 10
+  loop_minimum_separation: 250
+  loop_candidate_radius: 1.5
+  loop_maximum_candidates: 2
+  loop_submap_half_width: 6
+  loop_voxel_size: 0.08
+  loop_max_correspondence_distance: 0.30
+  loop_minimum_inlier_ratio: 0.70
+  loop_maximum_rmse: 0.18
+  loop_minimum_correspondences: 100
+  loop_maximum_correction: 0.30
+  loop_maximum_correction_yaw_deg: 5.0
+  loop_confirmation_count: 3
+  loop_confirmation_index_tolerance: 20
+  loop_min_sigma_xy: 0.05
+  loop_max_sigma_xy: 0.30
+  loop_sigma_yaw_deg: 2.0
+  loop_dcs_phi: 1.0
+
+# AMCL recovery is retained in the code for experiments, but it is disabled
+# because it did not improve geometric localization on the validated dataset.
+experimental:
+  enable_amcl_recovery: false
+
+visualization:
+  path_publish_rate_hz: 2.0
+  status_publish_rate_hz: 1.0
+  axis_length: 0.8
+  axis_width: 0.07
+  loop_marker_width: 0.10
+  publish_map_to_odom_tf: true

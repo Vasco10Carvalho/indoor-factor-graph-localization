@@ -1,0 +1,6 @@
+gtsam==4.2
+matplotlib==3.7.5
+numpy==1.26.4
+opencv-python-headless==4.11.0.86
+PyYAML==6.0.1
+scipy==1.11.4
