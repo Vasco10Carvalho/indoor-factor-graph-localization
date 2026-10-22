@@ -18,6 +18,7 @@ RUN apt-get update \
         ros-humble-rosbag2-storage-mcap \
         ros-humble-rviz2 \
         ros-humble-sensor-msgs \
+        ros-humble-sensor-msgs-py \
         ros-humble-std-msgs \
         ros-humble-tf2-ros \
         ros-humble-visualization-msgs \
@@ -30,8 +31,13 @@ RUN python3 -m pip install --no-cache-dir --upgrade "pip<26" "setuptools<80" whe
 WORKDIR /workspace
 COPY . /workspace
 
-RUN chmod +x /workspace/pipeline.sh /workspace/indoor_localization/*.py \
+RUN chmod +x /workspace/pipeline.sh /workspace/pose3_pipeline.sh \
+        /workspace/indoor_localization/*.py \
+        /workspace/indoor_localization_pose3/*.py \
+        /workspace/tools/*.py \
     && python3 -m py_compile /workspace/indoor_localization/*.py \
+        /workspace/indoor_localization_pose3/*.py \
+        /workspace/tools/*.py \
     && source /opt/ros/humble/setup.bash \
     && python3 -m unittest discover -s /workspace/tests -p 'test_*.py'
 

@@ -1,0 +1,234 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /Global Options1
+        - /MAPA RViz sem teto1
+        - /VERMELHO - Factor Graph Pose3 otimizado1
+    Tree Height: 760
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 0.35
+      Cell Size: 5
+      Class: rviz_default_plugins/Grid
+      Color: 120; 120; 120
+      Enabled: true
+      Line Style:
+        Line Width: 0.03
+        Value: Lines
+      Name: Grid
+      Plane: XY
+      Plane Cell Count: 40
+      Reference Frame: <Fixed Frame>
+      Value: true
+    - Alpha: 0.42
+      Autocompute Intensity Bounds: true
+      Class: rviz_default_plugins/PointCloud2
+      Color Transformer: RGB8
+      Decay Time: 0
+      Enabled: true
+      Name: MAPA RViz sem teto (ICP usa mapa completo)
+      Position Transformer: XYZ
+      Selectable: true
+      Size (Pixels): 2
+      Size (m): 0.04
+      Style: Points
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /indoor_pose3/map_points
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: true
+    - Alpha: 0.70
+      Autocompute Intensity Bounds: true
+      Class: rviz_default_plugins/PointCloud2
+      Color: 170; 170; 170
+      Color Transformer: FlatColor
+      Decay Time: 0.25
+      Enabled: true
+      Name: Live LiDAR
+      Position Transformer: XYZ
+      Size (Pixels): 2
+      Style: Points
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /ouster/points
+      Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 255; 50; 45
+      Enabled: true
+      Line Style: Billboards
+      Line Width: 0.16
+      Name: VERMELHO - Factor Graph Pose3 otimizado
+      Pose Style: None
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /indoor_pose3/path
+      Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 255; 150; 30
+      Enabled: true
+      Line Style: Lines
+      Line Width: 0.05
+      Name: LARANJA - Odometria alinhada
+      Pose Style: None
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /indoor_pose3/odometry_path
+      Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 160; 160; 160
+      Enabled: true
+      Line Style: Lines
+      Line Width: 0.04
+      Name: CINZENTO - Previsao antes do ICP
+      Pose Style: None
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /indoor_pose3/predicted_path
+      Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 40; 125; 255
+      Enabled: true
+      Line Style: Lines
+      Line Width: 0.04
+      Name: AZUL - Scan-to-map ICP aceite
+      Pose Style: None
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /indoor_pose3/scan_to_map_path
+      Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 30; 235; 235
+      Enabled: true
+      Line Style: Lines
+      Line Width: 0.06
+      Name: CIANO - Auxilio Pose2 usado pelo Pose3
+      Pose Style: None
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /indoor_pose3/pose2_aid_path
+      Value: true
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: ESFERAS VERMELHAS - ICP rejeitado
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /indoor_pose3/rejected_scan_markers
+      Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 30; 220; 255
+      Enabled: false
+      Line Style: Lines
+      Line Width: 0.04
+      Name: CIANO - Factor Graph Pose2 externo
+      Pose Style: None
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /indoor/factor_graph/path
+      Value: false
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: Base XYZ Axes
+      Topic:
+        Depth: 10
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /indoor_pose3/axes
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: MAGENTA - Loop closures Pose3
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /indoor_pose3/loops
+      Value: true
+    - Class: rviz_default_plugins/TF
+      Enabled: true
+      Frame Timeout: 15
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+      Value: true
+  Enabled: true
+  Global Options:
+    Background Color: 28; 31; 36
+    Fixed Frame: map
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+  Transformation:
+    Current:
+      Class: rviz_default_plugins/TF
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 45
+      Focal Point:
+        X: 5.2
+        Y: 45.8
+        Z: 0.7
+      Focal Shape Fixed Size: true
+      Pitch: 1.15
+      Target Frame: map
+      Value: Orbit (rviz)
+      Yaw: 0.2
+    Saved: ~
+Window Geometry:
+  Height: 900
+  Width: 1500
+  X: 80
+  Y: 60

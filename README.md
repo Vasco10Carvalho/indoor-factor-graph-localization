@@ -12,6 +12,14 @@ uses a GTSAM `Pose2` factor graph to combine:
 It is a **localization** pipeline: it publishes the supplied map and never
 creates or modifies it. GNSS and AMCL are not required.
 
+## Nova versão Pose3/6D
+
+A implementação original Pose2 permanece em `indoor_localization/`. A pasta
+[`indoor_localization_pose3/`](indoor_localization_pose3/README.md) acrescenta
+uma versão 6D independente com deskew, ICP 3D point-to-plane contra um PLY,
+`PriorFactorPose3`, loop closures `BetweenFactorPose3` e iSAM2, sem GNSS ou
+AMCL. O launcher correspondente é `pose3_pipeline.sh`.
+
 ## Why there is no `.env`
 
 Machine-specific paths and the initial pose are command-line arguments.
@@ -30,9 +38,10 @@ YAML, change only the topics or tuning, and keep bags/maps outside Git.
   - `sensor_msgs/msg/Imu` unless `allow_missing_robot_imu: true` is configured;
   - optional LiDAR IMU.
 
-This pipeline consumes a planar `LaserScan`, not `PointCloud2` directly. A 3D
-LiDAR cloud must first be projected to `/scan` using the correct LiDAR-to-base
-extrinsic and a suitable height slice.
+The Pose2 pipeline consumes a planar `LaserScan`. The independent Pose3/6D
+pipeline consumes `PointCloud2` directly and does not project the Ouster cloud
+to `/scan`; its requirements and commands are documented in
+[`indoor_localization_pose3/`](indoor_localization_pose3/README.md).
 
 ## Build and validate
 
