@@ -166,6 +166,41 @@ def rotation_angle_deg(rotation: gtsam.Rot3) -> float:
     return math.degrees(float(np.linalg.norm(tangent)))
 
 
+def odometry_interval_is_continuous(
+    samples: Sequence[OdomSample],
+    start: OdomSample,
+    end: OdomSample,
+    maximum_step: float,
+    maximum_rotation_deg: float,
+) -> bool:
+    """Validate a large keyframe delta using the intervening odometry samples."""
+
+    if end.stamp_ns <= start.stamp_ns:
+        return False
+    interval = [start]
+    interval.extend(
+        sample
+        for sample in samples
+        if start.stamp_ns < sample.stamp_ns < end.stamp_ns
+    )
+    interval.append(end)
+    if len(interval) <= 2:
+        return False
+
+    for previous, current in zip(interval, interval[1:]):
+        delta = previous.pose.between(current.pose)
+        translation = float(
+            np.linalg.norm(np.asarray(delta.translation(), dtype=float))
+        )
+        rotation = rotation_angle_deg(delta.rotation())
+        if (
+            translation > maximum_step
+            or rotation > maximum_rotation_deg
+        ):
+            return False
+    return True
+
+
 def robust_noise(sigmas: np.ndarray, loss: str, parameter: float):
     diagonal = gtsam.noiseModel.Diagonal.Sigmas(
         np.asarray(sigmas, dtype=float)

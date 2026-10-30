@@ -18,7 +18,8 @@ Usage:
   ./pipeline.sh play --bag BAG_DIRECTORY [options]
   ./pipeline.sh rviz [--domain-id ID] [--live]
   ./pipeline.sh monitor [--domain-id ID]
-  ./pipeline.sh evaluate --output DIR [--bag-label TEXT] [--map-label TEXT]
+  ./pipeline.sh publish-result --output DIR --map-yaml MAP.yaml [--domain-id ID]
+  ./pipeline.sh evaluate --output DIR [--map-yaml MAP.yaml] [--bag-label TEXT] [--map-label TEXT]
 
 Run options:
   --config YAML              Algorithm profile (default: configs/hospital.yaml)
@@ -157,6 +158,7 @@ case "${action}" in
         --map-yaml "/data/map/${map_name}" \
         --output-csv /output/trajectory.csv \
         --output-odom-only-csv /output/odometry_only.csv \
+        --output-components-csv /output/trajectory_components.csv \
         --output-status-json /output/status.json \
         "${initial_args[@]}" \
         "${extra_args[@]}" \
@@ -250,13 +252,53 @@ case "${action}" in
       python3 /workspace/indoor_localization/monitor_status.py
     ;;
 
+  publish-result)
+    output=""
+    map_yaml=""
+    domain_id=42
+    container_name=indoor-result-publisher
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --output) need_value "$@"; output="$2"; shift 2 ;;
+        --map-yaml) need_value "$@"; map_yaml="$2"; shift 2 ;;
+        --domain-id) need_value "$@"; domain_id="$2"; shift 2 ;;
+        --name) need_value "$@"; container_name="$2"; shift 2 ;;
+        -h|--help) usage; exit 0 ;;
+        *) fail "Unknown publish-result option: $1" ;;
+      esac
+    done
+    [[ -f "${output}/trajectory.csv" ]] || fail "trajectory.csv not found in ${output:-<missing>}"
+    [[ -f "${output}/odometry_only.csv" ]] || fail "odometry_only.csv not found in ${output:-<missing>}"
+    [[ -f "${output}/trajectory_components.csv" ]] || fail "trajectory_components.csv not found in ${output:-<missing>}"
+    [[ -f "${map_yaml}" ]] || fail "Map YAML not found: ${map_yaml:-<missing>}"
+    output="$(realpath "${output}")"
+    map_yaml="$(realpath "${map_yaml}")"
+    map_dir="$(dirname "${map_yaml}")"
+    map_name="$(basename "${map_yaml}")"
+    mapfile -d '' ros_env < <(ros_environment "${domain_id}")
+    exec docker run --rm --init \
+      --name "${container_name}" --network host --ipc host \
+      --user "$(id -u):$(id -g)" --env HOME=/tmp/indoor_result_home \
+      "${ros_env[@]}" \
+      --volume "${output}:/output:ro" \
+      --volume "${map_dir}:/data/map:ro" \
+      "${IMAGE_NAME}" \
+      python3 /workspace/indoor_localization/publish_indoor_result.py \
+        --map-yaml "/data/map/${map_name}" \
+        --trajectory-csv /output/trajectory.csv \
+        --odom-csv /output/odometry_only.csv \
+        --components-csv /output/trajectory_components.csv
+    ;;
+
   evaluate)
     output=""
+    map_yaml=""
     bag_label=""
     map_label=""
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --output) need_value "$@"; output="$2"; shift 2 ;;
+        --map-yaml) need_value "$@"; map_yaml="$2"; shift 2 ;;
         --bag-label) need_value "$@"; bag_label="$2"; shift 2 ;;
         --map-label) need_value "$@"; map_label="$2"; shift 2 ;;
         -h|--help) usage; exit 0 ;;
@@ -268,9 +310,26 @@ case "${action}" in
     optional_args=()
     [[ ! -f "${output}/status.json" ]] || optional_args+=(--status-json /output/status.json)
     [[ ! -f "${output}/odometry_only.csv" ]] || optional_args+=(--odom-csv /output/odometry_only.csv)
+    if [[ -f "${output}/trajectory_components.csv" ]]; then
+      optional_args+=(
+        --components-csv /output/trajectory_components.csv
+        --comparison-plot-out /output/trajectory_comparison.png
+        --timeseries-plot-out /output/trajectory_timeseries.png
+        --quality-plot-out /output/scan_quality.png
+      )
+    fi
+    map_volume=()
+    if [[ -n "${map_yaml}" ]]; then
+      [[ -f "${map_yaml}" ]] || fail "Map YAML not found: ${map_yaml}"
+      map_yaml="$(realpath "${map_yaml}")"
+      map_dir="$(dirname "${map_yaml}")"
+      map_name="$(basename "${map_yaml}")"
+      map_volume+=(--volume "${map_dir}:/data/map:ro")
+      optional_args+=(--map-yaml "/data/map/${map_name}")
+    fi
     exec docker run --rm --init --user "$(id -u):$(id -g)" \
       --env HOME=/tmp/indoor_evaluation_home \
-      --volume "${output}:/output" "${IMAGE_NAME}" \
+      --volume "${output}:/output" "${map_volume[@]}" "${IMAGE_NAME}" \
       python3 /workspace/indoor_localization/evaluate_indoor_result.py \
         /output/trajectory.csv "${optional_args[@]}" \
         --summary-out /output/summary.json \

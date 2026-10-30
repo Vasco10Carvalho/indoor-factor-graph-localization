@@ -9,6 +9,11 @@ uses a GTSAM `Pose2` factor graph to combine:
 - confirmed global scan recovery after tracking loss;
 - scan-to-old-submap loop closures with DCS robust noise.
 
+The local correlative matcher uses a configurable odometry motion prior to
+break near ties in long, weakly constrained corridors. This prevents small
+longitudinal scan-matching errors from accumulating while still allowing a
+decisively better map match to override odometry.
+
 It is a **localization** pipeline: it publishes the supplied map and never
 creates or modifies it. GNSS and AMCL are not required.
 
@@ -69,6 +74,18 @@ different:
 cp configs/hospital.yaml configs/my_robot.yaml
 ```
 
+The validated motion-prior parameters are:
+
+```yaml
+scan_matching:
+  scan_translation_prior_weight: 0.05
+  scan_rotation_prior_weight: 0.20
+```
+
+Set both weights to `0.0` to reproduce the original pure distance-field
+scorer. The same non-zero values were validated on the hospital urgency and
+pharmacy bags.
+
 ## Run with a known initial pose
 
 All terminals must use the same ROS domain ID. Angles are in degrees and map
@@ -112,6 +129,8 @@ Use `map` as RViz Fixed Frame. The principal displays are already configured:
 - `/indoor/map`;
 - `/indoor/factor_graph/path` and `/indoor/factor_graph/segments`;
 - `/indoor/odometry_only/path`;
+- `/indoor/predicted/path` (graph prediction before scan correction);
+- `/indoor/scan_to_map/path` and `/indoor/scan_to_map/rejected`;
 - `/indoor/factor_graph/axes`;
 - `/indoor/factor_graph/loops`;
 - `/indoor/factor_graph/recovery_markers`.
@@ -170,6 +189,7 @@ After stopping localization with `Ctrl+C`:
 ```bash
 ./pipeline.sh evaluate \
   --output /absolute/path/to/output \
+  --map-yaml /absolute/path/to/map.yaml \
   --bag-label my_bag \
   --map-label my_map
 ```
@@ -179,14 +199,51 @@ The output directory contains:
 ```text
 trajectory.csv
 odometry_only.csv
+trajectory_components.csv
 status.json
 summary.json
 trajectory_preview.png
+trajectory_comparison.png
+trajectory_timeseries.png
+scan_quality.png
+```
+
+`trajectory_components.csv` records synchronized raw and map-aligned odometry,
+the graph prediction before scan correction, the scan-to-map measurement and
+the optimized factor-graph fusion. The comparison plot shows all map-frame
+trajectories over the occupancy map and raw odometry in its own coordinate
+frame.
+
+## Reopen a saved result in RViz
+
+Publish the saved map-frame trajectories without replaying the bag:
+
+```bash
+./pipeline.sh publish-result \
+  --output /absolute/path/to/output \
+  --map-yaml /absolute/path/to/map.yaml \
+  --domain-id 42
+```
+
+In another terminal, use wall time because no bag is publishing `/clock`:
+
+```bash
+./pipeline.sh rviz --domain-id 42 --live
 ```
 
 Acceptance rate and wall distance are consistency indicators, not absolute
 accuracy. Proper validation requires independent ground truth or surveyed
 checkpoints.
+
+## Multi-method trajectory comparison
+
+The [`trajectory_comparison/`](trajectory_comparison/README.md) tools record
+and compare Factor Graph 2D, AMCL, SLAM Toolbox, Cartographer, KISS-ICP and
+KISS-ICP + Cartographer. For a fair fixed-map benchmark, follow the
+[localization-only procedure](trajectory_comparison/README_LOCALIZATION.md).
+The methods are published as independent RViz `Path` displays with fixed
+colors, and machine-specific bags, maps, workspaces and output directories are
+supplied as command-line arguments or shell variables.
 
 ## Factor graph
 

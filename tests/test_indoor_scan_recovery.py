@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 import sys
+import threading
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -94,6 +95,42 @@ class IndoorScanRecoveryTests(unittest.TestCase):
         self.assertEqual([round(p.x) for p in segments.points], [0, 1, 10, 11])
         self.assertEqual(len(recoveries.points), 1)
         self.assertAlmostEqual(recoveries.points[0].x, 10.0)
+
+    def test_component_csv_records_every_pose_source(self):
+        node = make_node()
+        node.state_lock = threading.Lock()
+        node.keyframe_index = 4
+        node.odom_only_map_start = gtsam.Pose2(5.0, 6.0, 0.1)
+        node.odom_only_odom_start = gtsam.Pose2(10.0, 20.0, 0.2)
+        node.last_scan_correction_xy = 0.25
+        node.last_scan_correction_yaw_deg = 1.5
+        node.last_rejection_reasons = []
+        node.components_output_writer = MagicMock()
+        node.components_output_file = MagicMock()
+        odom = OdomSample(123, gtsam.Pose2(11.0, 20.5, 0.3))
+        predicted = gtsam.Pose2(6.0, 6.5, 0.2)
+        measured = gtsam.Pose2(6.1, 6.6, 0.22)
+        optimized = gtsam.Pose2(6.05, 6.55, 0.21)
+
+        node.write_components_output(
+            123,
+            odom,
+            predicted,
+            measured,
+            optimized,
+            True,
+            "accepted",
+            match(6.1, 6.6, 0.22),
+            None,
+        )
+
+        row = node.components_output_writer.writerow.call_args.args[0]
+        self.assertEqual(row[0:4], [123, 4, "accepted", 1])
+        self.assertEqual(row[4:6], [11.0, 20.5])
+        self.assertEqual(row[10:12], [6.0, 6.5])
+        self.assertEqual(row[13:15], [6.1, 6.6])
+        self.assertEqual(row[16:18], [6.05, 6.55])
+        node.components_output_file.flush.assert_called_once()
 
 
 if __name__ == "__main__":

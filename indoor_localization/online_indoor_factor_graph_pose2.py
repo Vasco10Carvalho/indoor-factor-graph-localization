@@ -239,6 +239,9 @@ class IndoorPose2FactorGraph(Node):
         self.last_processed_scan_ns: int | None = None
         self.path_poses: list[tuple[int, gtsam.Pose2]] = []
         self.odom_only_path_poses: list[tuple[int, gtsam.Pose2]] = []
+        self.predicted_path_poses: list[tuple[int, gtsam.Pose2]] = []
+        self.scan_to_map_path_poses: list[tuple[int, gtsam.Pose2]] = []
+        self.rejected_scan_poses: list[tuple[int, gtsam.Pose2]] = []
         self.odom_only_map_start: gtsam.Pose2 | None = None
         self.odom_only_odom_start: gtsam.Pose2 | None = None
         self.last_odom_only_stamp_ns: int | None = None
@@ -326,6 +329,41 @@ class IndoorPose2FactorGraph(Node):
                 "source_odom_yaw_deg",
             ]
         )
+        args.output_components_csv.parent.mkdir(parents=True, exist_ok=True)
+        self.components_output_file = args.output_components_csv.open(
+            "w", encoding="utf-8", newline=""
+        )
+        self.components_output_writer = csv.writer(self.components_output_file)
+        self.components_output_writer.writerow(
+            [
+                "stamp_ns",
+                "keyframe_index",
+                "scan_status",
+                "scan_accepted",
+                "raw_odom_x",
+                "raw_odom_y",
+                "raw_odom_yaw_deg",
+                "aligned_odom_x",
+                "aligned_odom_y",
+                "aligned_odom_yaw_deg",
+                "predicted_x",
+                "predicted_y",
+                "predicted_yaw_deg",
+                "scan_x",
+                "scan_y",
+                "scan_yaw_deg",
+                "optimized_x",
+                "optimized_y",
+                "optimized_yaw_deg",
+                "scan_inlier_ratio",
+                "scan_mean_distance",
+                "scan_valid_ratio",
+                "scan_correction_xy",
+                "scan_correction_yaw_deg",
+                "rejection_reasons",
+                "loop_candidate_index",
+            ]
+        )
         args.output_status_json.parent.mkdir(parents=True, exist_ok=True)
 
         sensor_qos = QoSProfile(
@@ -373,6 +411,15 @@ class IndoorPose2FactorGraph(Node):
         )
         self.odom_only_path_publisher = self.create_publisher(
             PathMsg, args.output_odom_only_path_topic, latched_qos
+        )
+        self.predicted_path_publisher = self.create_publisher(
+            PathMsg, args.output_predicted_path_topic, latched_qos
+        )
+        self.scan_to_map_path_publisher = self.create_publisher(
+            PathMsg, args.output_scan_to_map_path_topic, latched_qos
+        )
+        self.rejected_scan_markers_publisher = self.create_publisher(
+            Marker, args.output_rejected_scan_markers_topic, latched_qos
         )
         self.axes_publisher = self.create_publisher(
             Marker, args.output_axes_topic, output_qos
@@ -653,6 +700,8 @@ class IndoorPose2FactorGraph(Node):
                     coarse_yaw_window_deg=self.args.local_yaw_window_deg,
                     coarse_yaw_step_deg=self.args.local_yaw_step_deg,
                     truncation_distance=self.args.truncation_distance,
+                    translation_prior_weight=self.args.scan_translation_prior_weight,
+                    rotation_prior_weight=self.args.scan_rotation_prior_weight,
                 )
         else:
             odom_delta = previous_odom.pose.between(odom.pose)
@@ -672,6 +721,8 @@ class IndoorPose2FactorGraph(Node):
                 coarse_yaw_window_deg=self.args.local_yaw_window_deg,
                 coarse_yaw_step_deg=self.args.local_yaw_step_deg,
                 truncation_distance=self.args.truncation_distance,
+                translation_prior_weight=self.args.scan_translation_prior_weight,
+                rotation_prior_weight=self.args.scan_rotation_prior_weight,
             )
 
         measured = gtsam.Pose2(match.x, match.y, match.yaw)
@@ -757,12 +808,29 @@ class IndoorPose2FactorGraph(Node):
             if loop_match is not None
             else "accepted" if accepted else "rejected_scan_match"
         )
+        with self.state_lock:
+            self.predicted_path_poses.append((scan_stamp, predicted))
+            if accepted:
+                self.scan_to_map_path_poses.append((scan_stamp, measured))
+            else:
+                self.rejected_scan_poses.append((scan_stamp, measured))
         self.scans_processed += 1
         self.scans_accepted += int(accepted)
         self.scans_rejected += int(not accepted)
         self.processing_wall.append(time.monotonic())
         self.processing_ms.append((time.monotonic() - started) * 1000.0)
         self.write_output(scan_stamp, optimized, self.last_status, match, loop_match)
+        self.write_components_output(
+            scan_stamp,
+            odom,
+            predicted,
+            measured,
+            optimized,
+            accepted,
+            self.last_status,
+            match,
+            loop_match,
+        )
         if self.scans_processed % 20 == 0:
             self.get_logger().info(
                 f"k={self.keyframe_index} {self.last_status} "
@@ -885,6 +953,8 @@ class IndoorPose2FactorGraph(Node):
             coarse_yaw_window_deg=self.args.amcl_recovery_yaw_window_deg,
             coarse_yaw_step_deg=self.args.local_yaw_step_deg,
             truncation_distance=self.args.truncation_distance,
+            translation_prior_weight=self.args.scan_translation_prior_weight,
+            rotation_prior_weight=self.args.scan_rotation_prior_weight,
         )
         refined = gtsam.Pose2(match.x, match.y, match.yaw)
         refinement = amcl_pose.between(refined)
@@ -1298,6 +1368,9 @@ class IndoorPose2FactorGraph(Node):
         with self.state_lock:
             path_poses = list(self.path_poses)
             odom_only_path_poses = list(self.odom_only_path_poses)
+            predicted_path_poses = list(self.predicted_path_poses)
+            scan_to_map_path_poses = list(self.scan_to_map_path_poses)
+            rejected_scan_poses = list(self.rejected_scan_poses)
             recovery_indices = set(self.recovery_indices)
         if path_poses:
             self.path_publisher.publish(self.make_path_message(path_poses))
@@ -1306,6 +1379,37 @@ class IndoorPose2FactorGraph(Node):
             self.odom_only_path_publisher.publish(
                 self.make_path_message(odom_only_path_poses)
             )
+        if predicted_path_poses:
+            self.predicted_path_publisher.publish(
+                self.make_path_message(predicted_path_poses)
+            )
+        if scan_to_map_path_poses:
+            self.scan_to_map_path_publisher.publish(
+                self.make_path_message(scan_to_map_path_poses)
+            )
+        if rejected_scan_poses:
+            self.publish_rejected_scan_markers(rejected_scan_poses)
+
+    def publish_rejected_scan_markers(
+        self, rejected_scan_poses: list[tuple[int, gtsam.Pose2]]
+    ) -> None:
+        marker = Marker()
+        set_stamp(marker.header.stamp, rejected_scan_poses[-1][0])
+        marker.header.frame_id = self.args.map_frame
+        marker.ns = "indoor_rejected_scan_matches"
+        marker.id = 0
+        marker.type = Marker.SPHERE_LIST
+        marker.action = Marker.ADD
+        marker.pose.orientation.w = 1.0
+        marker.scale.x = 0.30
+        marker.scale.y = 0.30
+        marker.scale.z = 0.30
+        marker.color = ColorRGBA(r=0.95, g=0.12, b=0.25, a=0.95)
+        marker.points = [
+            Point(x=pose.x(), y=pose.y(), z=0.18)
+            for _, pose in rejected_scan_poses
+        ]
+        self.rejected_scan_markers_publisher.publish(marker)
 
     def publish_path_markers(
         self,
@@ -1411,6 +1515,13 @@ class IndoorPose2FactorGraph(Node):
             "model": f"Pose2 iSAM2 + DCS loops + {imu_description}",
             "keyframes": self.keyframe_index + 1,
             "odometry_only_poses": len(self.odom_only_path_poses),
+            "predicted_poses": len(self.predicted_path_poses),
+            "scan_to_map_accepted_poses": len(self.scan_to_map_path_poses),
+            "scan_to_map_rejected_poses": len(self.rejected_scan_poses),
+            "scan_matching": {
+                "translation_prior_weight": self.args.scan_translation_prior_weight,
+                "rotation_prior_weight": self.args.scan_rotation_prior_weight,
+            },
             "source_hz": {
                 "local_odometry": rate_hz(self.odom_rx_stamp),
                 "robot_imu": rate_hz(self.imu_rx_stamp),
@@ -1515,6 +1626,66 @@ class IndoorPose2FactorGraph(Node):
         )
         self.output_file.flush()
 
+    def write_components_output(
+        self,
+        value_ns: int,
+        odom: OdomSample,
+        predicted: gtsam.Pose2,
+        measured: gtsam.Pose2,
+        optimized: gtsam.Pose2,
+        accepted: bool,
+        status: str,
+        match: MatchResult,
+        loop_match: LoopMatch | None,
+    ) -> None:
+        with self.state_lock:
+            map_start = self.odom_only_map_start
+            odom_start = self.odom_only_odom_start
+            keyframe_index = self.keyframe_index
+        aligned = (
+            align_odometry_pose(map_start, odom_start, odom.pose)
+            if map_start is not None and odom_start is not None
+            else None
+        )
+        aligned_values: list[float | str]
+        if aligned is None:
+            aligned_values = ["", "", ""]
+        else:
+            aligned_values = [
+                aligned.x(),
+                aligned.y(),
+                math.degrees(aligned.theta()),
+            ]
+        self.components_output_writer.writerow(
+            [
+                value_ns,
+                keyframe_index,
+                status,
+                int(accepted),
+                odom.pose.x(),
+                odom.pose.y(),
+                math.degrees(odom.pose.theta()),
+                *aligned_values,
+                predicted.x(),
+                predicted.y(),
+                math.degrees(predicted.theta()),
+                measured.x(),
+                measured.y(),
+                math.degrees(measured.theta()),
+                optimized.x(),
+                optimized.y(),
+                math.degrees(optimized.theta()),
+                match.inlier_ratio,
+                match.mean_distance,
+                match.valid_ratio,
+                self.last_scan_correction_xy,
+                self.last_scan_correction_yaw_deg,
+                ";".join(self.last_rejection_reasons),
+                "" if loop_match is None else loop_match.candidate_index,
+            ]
+        )
+        self.components_output_file.flush()
+
     def destroy_node(self):
         self.stop_event.set()
         self.pending_event.set()
@@ -1522,6 +1693,7 @@ class IndoorPose2FactorGraph(Node):
             self.worker.join(timeout=2.0)
         self.output_file.close()
         self.odom_only_output_file.close()
+        self.components_output_file.close()
         return super().destroy_node()
 
 
@@ -1539,6 +1711,7 @@ def parse_arguments() -> tuple[argparse.Namespace, list[str]]:
     parser.add_argument("--map-yaml", type=Path, required=True)
     parser.add_argument("--output-csv", type=Path, required=True)
     parser.add_argument("--output-odom-only-csv", type=Path, required=True)
+    parser.add_argument("--output-components-csv", type=Path, required=True)
     parser.add_argument("--output-status-json", type=Path, required=True)
     parser.add_argument("--map-frame", default="map")
     parser.add_argument("--odom-frame", default="odom")
@@ -1564,6 +1737,16 @@ def parse_arguments() -> tuple[argparse.Namespace, list[str]]:
     )
     parser.add_argument(
         "--output-odom-only-path-topic", default="/indoor/odometry_only/path"
+    )
+    parser.add_argument(
+        "--output-predicted-path-topic", default="/indoor/predicted/path"
+    )
+    parser.add_argument(
+        "--output-scan-to-map-path-topic", default="/indoor/scan_to_map/path"
+    )
+    parser.add_argument(
+        "--output-rejected-scan-markers-topic",
+        default="/indoor/scan_to_map/rejected",
     )
     parser.add_argument("--output-axes-topic", default="/indoor/factor_graph/axes")
     parser.add_argument("--output-loops-topic", default="/indoor/factor_graph/loops")
@@ -1620,6 +1803,18 @@ def parse_arguments() -> tuple[argparse.Namespace, list[str]]:
     parser.add_argument("--local-yaw-window-deg", type=float, default=6.0)
     parser.add_argument("--local-yaw-step-deg", type=float, default=1.0)
     parser.add_argument("--truncation-distance", type=float, default=1.5)
+    parser.add_argument(
+        "--scan-translation-prior-weight",
+        type=float,
+        default=0.05,
+        help="Penalty on squared XY displacement from the odometry prediction",
+    )
+    parser.add_argument(
+        "--scan-rotation-prior-weight",
+        type=float,
+        default=0.20,
+        help="Penalty on squared yaw displacement from the odometry prediction",
+    )
     parser.add_argument("--minimum-inlier-ratio", type=float, default=0.35)
     parser.add_argument("--maximum-mean-distance", type=float, default=0.65)
     parser.add_argument("--minimum-valid-ratio", type=float, default=0.75)
@@ -1729,6 +1924,11 @@ def parse_arguments() -> tuple[argparse.Namespace, list[str]]:
         parser.error("AMCL recovery counts must be positive")
     if args.amcl_covariance_inflation < 1.0:
         parser.error("AMCL covariance inflation must be at least 1.0")
+    if min(
+        args.scan_translation_prior_weight,
+        args.scan_rotation_prior_weight,
+    ) < 0.0:
+        parser.error("scan motion-prior weights must be non-negative")
     return args, ros_args
 
 

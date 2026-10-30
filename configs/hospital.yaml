@@ -18,6 +18,9 @@ topics:
   output_segments_topic: /indoor/factor_graph/segments
   output_recovery_markers_topic: /indoor/factor_graph/recovery_markers
   output_odom_only_path_topic: /indoor/odometry_only/path
+  output_predicted_path_topic: /indoor/predicted/path
+  output_scan_to_map_path_topic: /indoor/scan_to_map/path
+  output_rejected_scan_markers_topic: /indoor/scan_to_map/rejected
   output_axes_topic: /indoor/factor_graph/axes
   output_loops_topic: /indoor/factor_graph/loops
   output_status_topic: /indoor/factor_graph/status
@@ -36,6 +39,10 @@ scan_matching:
   local_xy_step: 0.20
   local_yaw_window_deg: 6.0
   local_yaw_step_deg: 1.0
+  # Regularize ambiguous longitudinal matches towards filtered odometry.
+  # Set both values to 0.0 to reproduce the original pure map scorer.
+  scan_translation_prior_weight: 0.05
+  scan_rotation_prior_weight: 0.20
   minimum_inlier_ratio: 0.35
   maximum_mean_distance: 0.65
   minimum_valid_ratio: 0.75

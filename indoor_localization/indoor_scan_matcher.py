@@ -182,6 +182,32 @@ def candidate_grid(
     )
 
 
+def motion_prior_costs(
+    candidates: np.ndarray,
+    map_costs: np.ndarray,
+    predicted_pose: np.ndarray,
+    translation_weight: float,
+    rotation_weight: float,
+) -> np.ndarray:
+    """Regularize ambiguous map matches towards the odometry prediction.
+
+    The occupancy-map score is a mean squared distance in m².  The additional
+    terms only break near ties when a corridor is weakly constrained along its
+    longitudinal axis; a decisive map improvement can still override the
+    motion prior.  Setting both weights to zero reproduces pure map scoring.
+    """
+    if translation_weight < 0.0 or rotation_weight < 0.0:
+        raise ValueError("Motion-prior weights must be non-negative")
+    predicted_pose = np.asarray(predicted_pose, dtype=float)
+    delta_xy = candidates[:, :2] - predicted_pose[None, :2]
+    delta_yaw = wrap_angle(candidates[:, 2] - predicted_pose[2])
+    return (
+        map_costs
+        + translation_weight * np.sum(delta_xy * delta_xy, axis=1)
+        + rotation_weight * np.square(delta_yaw)
+    )
+
+
 def local_scan_match(
     occupancy_map: OccupancyMap,
     points: np.ndarray,
@@ -195,9 +221,12 @@ def local_scan_match(
     fine_yaw_window_deg: float = 1.0,
     fine_yaw_step_deg: float = 0.25,
     truncation_distance: float = 1.5,
+    translation_prior_weight: float = 0.05,
+    rotation_prior_weight: float = 0.20,
 ) -> MatchResult:
     if len(points) < 20:
         raise ValueError("Not enough valid laser points")
+    predicted_pose = np.asarray(predicted_pose, dtype=float)
     coarse = candidate_grid(
         predicted_pose,
         coarse_xy_window,
@@ -211,7 +240,14 @@ def local_scan_match(
         coarse,
         truncation_distance,
     )
-    best_coarse = coarse[int(np.argmin(coarse_metrics[0]))]
+    coarse_costs = motion_prior_costs(
+        coarse,
+        coarse_metrics[0],
+        predicted_pose,
+        translation_prior_weight,
+        rotation_prior_weight,
+    )
+    best_coarse = coarse[int(np.argmin(coarse_costs))]
     fine = candidate_grid(
         best_coarse,
         fine_xy_window,
@@ -225,13 +261,20 @@ def local_scan_match(
         fine,
         truncation_distance,
     )
-    index = int(np.argmin(fine_metrics[0]))
+    fine_costs = motion_prior_costs(
+        fine,
+        fine_metrics[0],
+        predicted_pose,
+        translation_prior_weight,
+        rotation_prior_weight,
+    )
+    index = int(np.argmin(fine_costs))
     pose = fine[index]
     return MatchResult(
         x=float(pose[0]),
         y=float(pose[1]),
         yaw=float(pose[2]),
-        cost=float(fine_metrics[0][index]),
+        cost=float(fine_costs[index]),
         inlier_ratio=float(fine_metrics[1][index]),
         mean_distance=float(fine_metrics[2][index]),
         valid_ratio=float(fine_metrics[3][index]),

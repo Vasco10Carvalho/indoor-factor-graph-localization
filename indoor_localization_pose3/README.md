@@ -38,7 +38,8 @@ As sigmas seguem a convenção GTSAM
 
 ## Auditoria do novo bag da Urgência
 
-Bag: `/mnt/nas_home/hospital/urgency/run1`
+Bag validado: `${HOSPITAL_DATA_ROOT}/urgency/run1`, em que
+`HOSPITAL_DATA_ROOT` deve apontar para a raiz local dos dados do hospital.
 
 - duração: 1106,825 s;
 - `/ouster/points`: 9598 mensagens, frame `os_lidar`, 64x1024 pontos;
@@ -83,9 +84,12 @@ verificação.
 Exemplo, escrevendo para uma pasta nova:
 
 ```bash
+SOURCE_PLY="/caminho/absoluto/para/urgencia_original.ply"
+ICP_MAP_ROOT="${ICP_MAP_ROOT:-$HOME/indoor_factor_graph_maps}"
+
 python3 tools/prepare_urgencia_icp_map.py \
-  "/media/antonio/Hard Disk2/Results/Result_urgencia/20260923100429_Convert to PLY.ply" \
-  /home/antonio/indoor_factor_graph_maps/urgencia
+  "$SOURCE_PLY" \
+  "$ICP_MAP_ROOT/urgencia"
 ```
 
 O mapa de 5 cm validado neste computador tem 1.467.089 pontos e limites
@@ -94,10 +98,16 @@ O mapa de 5 cm validado neste computador tem 1.467.089 pontos e limites
 
 ## Comandos para `urgency/run1`
 
-Construir uma vez:
+Definir primeiro os caminhos locais; nenhum deles fica codificado no
+repositório. Depois, construir uma vez:
 
 ```bash
-cd /home/antonio/indoor-factor-graph-localization
+REPO_ROOT="${REPO_ROOT:-$HOME/indoor-factor-graph-localization}"
+HOSPITAL_DATA_ROOT="/caminho/absoluto/para/hospital"
+URGENCY_MAP_PLY="/caminho/absoluto/para/urgencia_3d_icp_map_0p05.ply"
+OUTPUT_ROOT="${OUTPUT_ROOT:-$HOME/indoor_factor_graph_runs}"
+cd "$REPO_ROOT"
+
 ./pose3_pipeline.sh build
 ./pose3_pipeline.sh check
 ```
@@ -106,8 +116,8 @@ Terminal 1, iniciar o factor graph:
 
 ```bash
 ./pose3_pipeline.sh run \
-  --map /home/antonio/isaacsim_ply_pipeline/urgencia_factor_graph_6d_map/urgencia_3d_icp_map_0p05.ply \
-  --output /home/antonio/indoor_factor_graph_runs/urgency_run1_pose3_6d \
+  --map "$URGENCY_MAP_PLY" \
+  --output "$OUTPUT_ROOT/urgency_run1_pose3_6d" \
   --config configs/hospital_pose3.yaml \
   --initial-pose 5.250 45.863 0.068 -0.22 0.62 -94.60 \
   --extrinsic 0 0 0.60118 0 0 180 \
@@ -130,7 +140,7 @@ Terminal 4, primeiro teste de 60 segundos:
 
 ```bash
 ./pose3_pipeline.sh play \
-  --bag /mnt/nas_home/hospital/urgency/run1 \
+  --bag "$HOSPITAL_DATA_ROOT/urgency/run1" \
   --duration 60 \
   --domain-id 76
 ```
@@ -139,7 +149,7 @@ Depois de parar o node com `Ctrl+C`:
 
 ```bash
 ./pose3_pipeline.sh evaluate \
-  --output /home/antonio/indoor_factor_graph_runs/urgency_run1_pose3_6d
+  --output "$OUTPUT_ROOT/urgency_run1_pose3_6d"
 ```
 
 Para reproduzir o bag completo, repetir sem `--duration 60`.
@@ -194,8 +204,8 @@ em conjunto, sem voltar a executar o factor graph:
 
 ```bash
 ./pose3_pipeline.sh publish \
-  --map /home/antonio/isaacsim_ply_pipeline/urgencia_factor_graph_6d_map/urgencia_3d_icp_map_0p05.ply \
-  --output /home/antonio/indoor_factor_graph_runs/urgency_run1_pose3_full_rate1 \
+  --map "$URGENCY_MAP_PLY" \
+  --output "$OUTPUT_ROOT/urgency_run1_pose3_full_rate1" \
   --domain-id 76
 ```
 
@@ -213,6 +223,94 @@ O CSV guarda os mesmos componentes para comparação offline. O avaliador gera
 JSON e PNG com aceitação ICP, fitness/RMSE, correspondências, correções, p50/p95,
 saltos, Z/roll/pitch e indicadores de retorno. Sem ground truth, estes últimos
 são métricas de consistência, não erro absoluto.
+
+## Farmácia: `pharmacy/run1` + `pharmacy/run2`
+
+O mapa da farmácia foi criado a partir de um PLY LiScan original, fornecido ao
+script através do argumento `SOURCE_PLY`.
+O PLY original não é alterado nem removido. A cópia fixa recomendada para ICP é:
+
+```text
+$ICP_MAP_ROOT/pharmacy/pharmacy_3d_icp_map_0p05.ply
+```
+
+O perfil [`configs/pharmacy_pose3.yaml`](../configs/pharmacy_pose3.yaml) usa o
+mapa 3D completo até `Z=4,20 m` no ICP, incluindo o teto. A publicação para o
+RViz termina em `Z=3,10 m`, retirando o teto da visualização na zona da
+farmácia sem alterar o mapa usado pelo factor graph.
+
+O alinhamento dos primeiros scans com o PLY mediu a pose inicial
+`[-14,019; -85,224; 1,014; 0,008; 0,056; 104,961 graus]`, com fitness `0,909`
+e RMSE `0,073 m`. O resultado e a imagem de validação são escritos em
+`$OUTPUT_ROOT/pharmacy_alignment_6d/`.
+
+Terminal 1, iniciar uma única instância do factor graph para os dois bags:
+
+```bash
+REPO_ROOT="${REPO_ROOT:-$HOME/indoor-factor-graph-localization}"
+HOSPITAL_DATA_ROOT="/caminho/absoluto/para/hospital"
+ICP_MAP_ROOT="${ICP_MAP_ROOT:-$HOME/indoor_factor_graph_maps}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-$HOME/indoor_factor_graph_runs}"
+PHARMACY_MAP_PLY="$ICP_MAP_ROOT/pharmacy/pharmacy_3d_icp_map_0p05.ply"
+cd "$REPO_ROOT"
+
+./pose3_pipeline.sh run \
+  --map "$PHARMACY_MAP_PLY" \
+  --output "$OUTPUT_ROOT/pharmacy_pose3_6d" \
+  --config configs/pharmacy_pose3.yaml \
+  --initial-pose -14.019 -85.224 1.014 0.008 0.056 104.961 \
+  --extrinsic 0 0 0.60118 0 0 180 \
+  --domain-id 77
+```
+
+Terminal 2, abrir o RViz:
+
+```bash
+./pose3_pipeline.sh rviz --domain-id 77
+```
+
+Terminal 3, reproduzir primeiro `run1` completo e, quando terminar, `run2` no
+mesmo node. Não usar `--start-offset`, porque a pose inicial corresponde ao
+primeiro scan real de `run1`:
+
+```bash
+./pose3_pipeline.sh play \
+  --bag "$HOSPITAL_DATA_ROOT/pharmacy/run1" \
+  --rate 1.0 \
+  --domain-id 77
+
+./pose3_pipeline.sh play \
+  --bag "$HOSPITAL_DATA_ROOT/pharmacy/run2" \
+  --rate 1.0 \
+  --domain-id 77
+```
+
+`run2` continua a odometria de `run1`, portanto o factor graph não deve ser
+reiniciado entre os dois comandos. No final, parar o node do Terminal 1 com
+`Ctrl+C` e avaliar:
+
+```bash
+./pose3_pipeline.sh evaluate \
+  --output "$OUTPUT_ROOT/pharmacy_pose3_6d"
+```
+
+Para voltar a publicar o resultado guardado, sem executar os bags:
+
+```bash
+./pose3_pipeline.sh publish \
+  --map "$PHARMACY_MAP_PLY" \
+  --output "$OUTPUT_ROOT/pharmacy_pose3_6d" \
+  --map-z-max 3.10 \
+  --domain-id 77
+
+./pose3_pipeline.sh rviz --domain-id 77 --live
+```
+
+Foi validado um ensaio desde o início de `run1` até à saída da farmácia: 152
+keyframes, 100% dos ICP aceites, fitness mediana `0,878`, RMSE mediana
+`0,076 m`, correção máxima `0,047 m` e nenhuma zona sem submapa. Esta validação
+curta confirma o arranque e o alinhamento; as métricas finais devem ser geradas
+depois da reprodução integral dos dois bags.
 
 ## Portabilidade e Jazzy
 

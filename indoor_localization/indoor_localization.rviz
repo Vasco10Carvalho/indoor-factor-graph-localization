@@ -58,8 +58,8 @@ Visualization Manager:
     - Alpha: 1
       Buffer Length: 1
       Class: rviz_default_plugins/Path
-      Color: 30; 210; 255
-      Enabled: false
+      Color: 0; 210; 145
+      Enabled: true
       Head Diameter: 0.3
       Head Length: 0.2
       Length: 0.3
@@ -82,7 +82,7 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /indoor/factor_graph/path
-      Value: false
+      Value: true
     - Class: rviz_default_plugins/Marker
       Enabled: true
       Name: Factor Graph Segments
@@ -134,6 +134,74 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /indoor/odometry_only/path
+      Value: true
+    - Alpha: 0.9
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 39; 125; 161
+      Enabled: true
+      Head Diameter: 0.3
+      Head Length: 0.2
+      Length: 0.3
+      Line Style: Lines
+      Line Width: 0.10
+      Name: Prediction Before Scan
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0.05
+      Pose Color: 39; 125; 161
+      Pose Style: None
+      Radius: 0.03
+      Shaft Diameter: 0.1
+      Shaft Length: 0.3
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /indoor/predicted/path
+      Value: true
+    - Alpha: 0.8
+      Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 199; 125; 255
+      Enabled: true
+      Head Diameter: 0.3
+      Head Length: 0.2
+      Length: 0.3
+      Line Style: Lines
+      Line Width: 0.08
+      Name: Accepted Scan-to-Map
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0.07
+      Pose Color: 199; 125; 255
+      Pose Style: None
+      Radius: 0.03
+      Shaft Diameter: 0.1
+      Shaft Length: 0.3
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /indoor/scan_to_map/path
+      Value: true
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: Rejected Scan-to-Map
+      Namespaces:
+        indoor_rejected_scan_matches: true
+      Topic:
+        Depth: 1
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /indoor/scan_to_map/rejected
       Value: true
     - Class: rviz_default_plugins/Marker
       Enabled: true

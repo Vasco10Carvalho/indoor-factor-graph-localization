@@ -20,7 +20,9 @@ from pose3_common import (  # noqa: E402
     deskew_points,
     keyframe_due,
     map_visualization_mask,
+    odometry_interval_is_continuous,
     pose3_from_components,
+    rotation_angle_deg,
 )
 from evaluate_pose3 import longest_true_run  # noqa: E402
 
@@ -67,6 +69,44 @@ class Pose3PipelineTests(unittest.TestCase):
         result = isam.calculateEstimate().atPose3(x1)
         self.assertTrue(
             np.allclose(result.matrix(), delta.matrix(), atol=1e-8)
+        )
+
+    def test_long_keyframe_delta_uses_continuous_odometry_samples(self) -> None:
+        samples = tuple(
+            OdomSample(
+                index * 1_000_000_000,
+                pose3_from_components(index, 0, 0, 0, 0, index * 30),
+            )
+            for index in range(4)
+        )
+        total = samples[0].pose.between(samples[-1].pose)
+        self.assertGreater(np.linalg.norm(total.translation()), 2.0)
+        self.assertGreater(rotation_angle_deg(total.rotation()), 45.0)
+        self.assertTrue(
+            odometry_interval_is_continuous(
+                samples,
+                samples[0],
+                samples[-1],
+                maximum_step=1.1,
+                maximum_rotation_deg=35.0,
+            )
+        )
+
+    def test_odometry_interval_rejects_an_internal_reset(self) -> None:
+        samples = (
+            OdomSample(0, pose3_from_components(0, 0, 0, 0, 0, 0)),
+            OdomSample(1, pose3_from_components(0.2, 0, 0, 0, 0, 2)),
+            OdomSample(2, pose3_from_components(4.2, 0, 0, 0, 0, 2)),
+            OdomSample(3, pose3_from_components(4.4, 0, 0, 0, 0, 4)),
+        )
+        self.assertFalse(
+            odometry_interval_is_continuous(
+                samples,
+                samples[0],
+                samples[-1],
+                maximum_step=1.0,
+                maximum_rotation_deg=30.0,
+            )
         )
 
     def test_deskew_constant_translation(self) -> None:

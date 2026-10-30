@@ -1,0 +1,140 @@
+# Pose3/6D profile for the hospital pharmacy LiScan map. Dataset paths,
+# initial pose and the measured base_link_T_lidar extrinsic stay on the CLI.
+
+frames:
+  map_frame: map
+  odom_frame: odom
+  base_frame: base_link
+  lidar_frame: os_lidar
+
+topics:
+  odom_topic: /odometry/filtered
+  lidar_topic: /ouster/points
+  output_odom_topic: /indoor_pose3/odometry
+  output_path_topic: /indoor_pose3/path
+  output_raw_path_topic: /indoor_pose3/odometry_path
+  output_predicted_path_topic: /indoor_pose3/predicted_path
+  output_scan_pose_topic: /indoor_pose3/scan_to_map
+  output_scan_path_topic: /indoor_pose3/scan_to_map_path
+  output_rejected_scan_topic: /indoor_pose3/rejected_scan_markers
+  output_axes_topic: /indoor_pose3/axes
+  output_loops_topic: /indoor_pose3/loops
+  output_map_topic: /indoor_pose3/map_points
+  output_status_topic: /indoor_pose3/status
+
+timing:
+  keyframe_rate_hz: 2.0
+  raw_path_rate_hz: 5.0
+  path_publish_rate_hz: 1.0
+  status_publish_rate_hz: 1.0
+  odom_buffer_size: 4000
+  odom_max_sync_sec: 0.04
+
+deskew:
+  enable_deskew: true
+  point_time_field: t
+  point_time_scale: 1.0e-9
+  deskew_reference: start
+  deskew_bins: 64
+  deskew_max_odom_gap_sec: 0.04
+
+factor_graph:
+  prior_sigma_xy: 0.25
+  prior_sigma_z: 0.15
+  prior_sigma_roll_deg: 3.0
+  prior_sigma_pitch_deg: 3.0
+  prior_sigma_yaw_deg: 8.0
+  odom_sigma_xy: 0.08
+  odom_sigma_z: 0.10
+  odom_sigma_roll_deg: 1.5
+  odom_sigma_pitch_deg: 1.5
+  odom_sigma_yaw_deg: 2.5
+  weak_odom_sigma_translation: 1.0
+  weak_odom_sigma_rotation_deg: 30.0
+  odom_maximum_step: 2.0
+  odom_maximum_rotation_deg: 45.0
+  relinearize_threshold: 0.05
+  relinearize_skip: 1
+
+pose2_aid:
+  pose2_aid_max_sync_sec: 0.25
+  pose2_aid_sigma_xy: 0.12
+  pose2_aid_sigma_yaw_deg: 2.5
+  pose2_aid_sigma_z: 100.0
+  pose2_aid_sigma_roll_pitch_deg: 90.0
+  pose2_aid_huber_k: 1.5
+
+map_and_scan:
+  map_voxel: 0.10
+  map_z_min: -0.30
+  map_z_max: 4.20
+  map_normal_radius: 0.45
+  map_normal_max_nn: 40
+  # RViz omits the ceiling; ICP still receives the complete 3D map above.
+  map_publish_z_min: -0.30
+  map_publish_z_max: 3.10
+  map_publish_max_points: 300000
+  scan_voxel: 0.15
+  min_range: 0.80
+  max_range: 30.0
+  source_z_min: -1.20
+  source_z_max: 2.50
+  max_source_points: 12000
+  minimum_source_points: 1000
+  crop_radius: 16.0
+  crop_z_margin_below: 2.0
+  crop_z_margin_above: 3.0
+  max_target_points: 120000
+  min_target_points: 3000
+  coarse_max_correspondence: 1.20
+  fine_max_correspondence: 0.35
+  icp_iterations: 35
+
+scan_gating:
+  minimum_fitness: 0.55
+  maximum_rmse: 0.20
+  minimum_correspondences: 1200
+  maximum_correction_xyz: 0.80
+  maximum_correction_xy: 0.75
+  maximum_correction_z: 0.35
+  maximum_correction_rotation_deg: 8.0
+  scan_min_sigma_xy: 0.04
+  scan_max_sigma_xy: 0.50
+  scan_min_sigma_z: 0.05
+  scan_max_sigma_z: 0.60
+  scan_min_sigma_roll_pitch_deg: 0.8
+  scan_max_sigma_roll_pitch_deg: 8.0
+  scan_min_sigma_yaw_deg: 1.0
+  scan_max_sigma_yaw_deg: 10.0
+  scan_huber_k: 1.5
+
+loop_closure:
+  enable_loop_closure: true
+  loop_check_interval: 10
+  loop_minimum_separation: 180
+  loop_candidate_radius: 2.0
+  loop_maximum_candidates: 2
+  loop_submap_half_width: 4
+  loop_voxel: 0.25
+  loop_max_points_per_keyframe: 3500
+  loop_normal_radius: 0.75
+  loop_normal_max_nn: 35
+  loop_max_correspondence: 0.40
+  loop_icp_iterations: 40
+  loop_minimum_fitness: 0.65
+  loop_maximum_rmse: 0.16
+  loop_minimum_correspondences: 700
+  loop_maximum_correction: 0.45
+  loop_maximum_rotation_deg: 6.0
+  loop_confirmation_count: 2
+  loop_confirmation_index_tolerance: 25
+  loop_min_sigma_translation: 0.05
+  loop_max_sigma_translation: 0.35
+  loop_min_sigma_rotation_deg: 1.0
+  loop_max_sigma_rotation_deg: 8.0
+  loop_dcs_phi: 1.0
+
+visualization:
+  axis_length: 0.8
+  axis_width: 0.05
+  loop_marker_width: 0.08

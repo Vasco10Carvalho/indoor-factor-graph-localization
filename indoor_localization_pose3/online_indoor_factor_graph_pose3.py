@@ -40,6 +40,7 @@ from pose3_common import (  # noqa: E402
     map_visualization_mask,
     nearest_odom,
     nearest_pose2_aid,
+    odometry_interval_is_continuous,
     pointcloud2_xyz_time,
     pose3_from_components,
     pose3_from_odometry,
@@ -538,6 +539,14 @@ class IndoorPose3FactorGraph(Node):
         else:
             odom_delta = previous_odom.pose.between(odom.pose)
             odom_delta_valid = self.reasonable_odometry_delta(odom_delta)
+            if not odom_delta_valid:
+                odom_delta_valid = odometry_interval_is_continuous(
+                    odom_samples,
+                    previous_odom,
+                    odom,
+                    self.args.odom_maximum_step,
+                    self.args.odom_maximum_rotation_deg,
+                )
             if odom_delta_valid:
                 predicted = latest.compose(odom_delta)
             else:
